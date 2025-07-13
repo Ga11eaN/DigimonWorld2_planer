@@ -1,9 +1,10 @@
 import ttkbootstrap as ttk
 from tkinter import END, Listbox
 from tkinter import messagebox
+from PIL import ImageTk, Image
 from functools import partial
 
-from data_retrive import read_enemies_data
+from data_retrive import read_enemies_data, get_digi_names
 from widgets import AutocompleteEntry
 from digimon import Digimon
 from helpers import Fights
@@ -99,7 +100,7 @@ def on_delete_key(event, tree):
     remove_selected(tree)
 
 
-def add_to_digi_line(digimon_listbox, digimons, digi_line_slots):
+def add_to_digi_line(digimon_listbox, digimons, digi_line_slots, digi_line_images):
     selected = digimon_listbox.curselection()
     if not selected:
         messagebox.showwarning("Selection error", "Please select a Digimon first.")
@@ -126,6 +127,10 @@ def add_to_digi_line(digimon_listbox, digimons, digi_line_slots):
                 f"Next: {digimon_obj.exp_needed()}"
             )
             label.config(text=info_text)
+            image = ImageTk.PhotoImage(Image.open(f"data/images/{digimon_obj.digimon_name}.jpg"))
+            digi_line_images[i].config(image=image)
+            digi_line_images[i].image = image
+
             remove_buttons[i].configure(state="normal")
             digimon_listbox.itemconfig(selected_index, bg="lightgreen")
             digi_line_index[i] = digimon_obj.id
@@ -161,17 +166,18 @@ def open_add_digimon_window(window, digimon_listbox, digimons):
     add_win.geometry("300x300")
     add_win.grab_set()  # Блокує головне вікно поки відкрите це
 
-    # Entry: Digimon name
-    ttk.Label(add_win, text="Digimon Name:").pack(pady=(10, 0))
-    digimon_name_var = ttk.StringVar()
-    digimon_name_entry = ttk.Entry(add_win, textvariable=digimon_name_var)
-    digimon_name_entry.pack()
-
     # Entry: Player name
     ttk.Label(add_win, text="Player Name:").pack(pady=(10, 0))
     player_name_var = ttk.StringVar()
     player_name_entry = ttk.Entry(add_win, textvariable=player_name_var)
     player_name_entry.pack()
+
+    # Entry: Digimon name
+    ttk.Label(add_win, text="Digimon Name:").pack(pady=(10, 0))
+    digimon_name_var = ttk.StringVar()
+    digimon_name_entry = AutocompleteEntry(add_win, textvariable=digimon_name_var,
+                                           root_window=add_win, suggestions=get_digi_names())
+    digimon_name_entry.pack()
 
     # Entry: Level
     ttk.Label(add_win, text="Level:").pack(pady=(10, 0))
@@ -193,7 +199,7 @@ def open_add_digimon_window(window, digimon_listbox, digimons):
         exp = exp_var.get().strip() if exp_var.get() else None
 
         if not name or not player or not lvl:
-            messagebox.showerror("Validation Error", "All fields must be filled.")
+            messagebox.showerror("Validation Error", "Names and lvl must be filled.")
             return
 
         try:
@@ -229,7 +235,7 @@ def open_add_digimon_window(window, digimon_listbox, digimons):
 
 
 # Кнопка Remove для слоту
-def make_remove_func(index, digi_line_slots, remove_buttons):
+def make_remove_func(index, digi_line_slots, remove_buttons, digi_line_images):
     def remove_slot():
         # Знімаємо підсвітку з digimon_listbox, якщо він там є
         slot_text = digi_line_slots[index].cget("text")
@@ -243,6 +249,7 @@ def make_remove_func(index, digi_line_slots, remove_buttons):
                         digimon_listbox.itemconfig(idx, bg="white")
                         break
         digi_line_slots[index].config(text="")
+        digi_line_images[index].config(image="")
         remove_buttons[index].configure(state="disabled")
 
         digi_id = int(player_name.split('. ')[0])
@@ -352,7 +359,7 @@ if __name__ == "__main__":
     bottom_btns = ttk.Frame(table_frame)
     bottom_btns.pack(side="bottom", pady=10)
 
-    remove_selected_wrap = partial(remove_selected, tree)
+    remove_selected_wrap = partial(remove_selected,tree)
     remove_btn = ttk.Button(bottom_btns, text="Remove", style="danger", command=remove_selected_wrap)
     remove_btn.pack(side="left", padx=(0, 10), ipadx=10)
 
@@ -393,8 +400,10 @@ if __name__ == "__main__":
 
     # Список для віджетів Digi-Line (3 Label-и для 3 слотів)
     digi_line_slots = []
+    digi_line_images = []
 
-    add_to_digi_line_wrap = partial(add_to_digi_line, digimon_listbox, digimons, digi_line_slots)
+    add_to_digi_line_wrap = partial(add_to_digi_line, digimon_listbox, digimons, digi_line_slots,
+                                    digi_line_images)
     add_digi_btn = ttk.Button(digimon_buttons_container, text="Add to Digi-Line", style="primary",
                               command=add_to_digi_line_wrap, width=buttons_width)
     add_digi_btn.pack(side="top", pady=2, padx=10)
@@ -426,13 +435,17 @@ if __name__ == "__main__":
         label_title = ttk.Label(frame, text=f"Digi-Line {i + 1}", anchor="center", font=("Segoe UI", 12, "bold"))
         label_title.pack(side="top", fill="x")
 
-        digi_label = ttk.Label(frame, text="", anchor="center", font=("Segoe UI", 11), foreground="green")
+        digi_image = ttk.Label(frame)
+        digi_image.pack(side='left', fill="both")
+
+        digi_label = ttk.Label(frame, text="", anchor="w", font=("Segoe UI", 11), foreground="green")
         digi_label.pack(expand=True, fill="both", side='left')
 
-        make_remove_func_wrap = partial(make_remove_func, i, digi_line_slots, remove_buttons)
+        make_remove_func_wrap = partial(make_remove_func, i, digi_line_slots, remove_buttons, digi_line_images)
         remove_btn = ttk.Button(frame, text="Remove", state="disabled", command=make_remove_func_wrap())
         remove_btn.pack(side="left", pady=5, padx=5)
 
+        digi_line_images.append(digi_image)
         digi_line_slots.append(digi_label)
         remove_buttons.append(remove_btn)
 

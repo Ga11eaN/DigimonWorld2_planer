@@ -3,11 +3,11 @@ import ttkbootstrap as ttk
 
 class AutocompleteEntry(ttk.Entry):
     def __init__(self, master, root_window, suggestions, *args, **kwargs):
-        kwargs["width"] = int(round(kwargs["width"]/10))
+        kwargs["width"] = int(round(kwargs["width"]/10)) if 'width' in kwargs else None
         super().__init__(master, *args, **kwargs)
         self.root_window = root_window
         self.suggestions = suggestions
-        self.var = self["textvariable"] = tk.StringVar()
+        self.var = self["textvariable"] = tk.StringVar() if not 'textvariable' in kwargs else kwargs['textvariable']
         self.var.trace_add("write", self.on_change)
 
         self.listbox = None
